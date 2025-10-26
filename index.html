@@ -100,7 +100,9 @@
 
 const elStage = document.getElementById('stage');
 let scene, camera, renderer, controls, tube, head, grid, axes;
-
+let playing = true;
+let pathPoints = [];
+let tMax = 40;
 init();
 generateCurve();
 
@@ -168,8 +170,7 @@ document.getElementById('reset').onclick = ()=>{
   camera.position.set(180,140,180);
 };
 
-let playing = true;
-let pathPoints = [], tMax = 40;
+
 
 function generateCurve(){
   // parámetros
