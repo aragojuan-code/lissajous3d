@@ -257,26 +257,26 @@ function animate(){
   controls.update();
 
   if (playing && pathPoints.length){
-    tHead += 0.001;              // velocidad más lenta
-    if (tHead>1) tHead=0;
+    tHead += 0.001;            // velocidad
+    if (tHead > 1) tHead = 0;
 
-    const idx = tHead*(pathPoints.length-1);
-    const i0 = Math.floor(idx), i1 = Math.min(pathPoints.length-1, i0+1);
-    const p = pathPoints[i0].clone().lerp(pathPoints[i1], idx-i0);
+    const idx = tHead * (pathPoints.length - 1);
+    const i0 = Math.floor(idx), i1 = Math.min(pathPoints.length - 1, i0 + 1);
+    const p  = pathPoints[i0].clone().lerp(pathPoints[i1], idx - i0); // <- p nace aquí
     head.position.copy(p);
 
     // proyecciones en planos
-    const {x,y,z} = p;
-    const pXY = new THREE.Vector3(x,y,0);
-    const pXZ = new THREE.Vector3(x,0,z);
-    const pYZ = new THREE.Vector3(0,y,z);
+    const {x, y, z} = p;
+    const pXY = new THREE.Vector3(x, y, 0);
+    const pXZ = new THREE.Vector3(x, 0, z);
+    const pYZ = new THREE.Vector3(0, y, z);
 
-    // bolas de plano
+    // bolitas de plano
     projBalls[0].position.copy(pXY);
     projBalls[1].position.copy(pXZ);
     projBalls[2].position.copy(pYZ);
 
-    // puntos sobre ejes (dos por plano)
+    // puntos sobre ejes
     const a1 = new THREE.Vector3(x,0,0), a2 = new THREE.Vector3(0,y,0); // XY
     const a3 = new THREE.Vector3(x,0,0), a4 = new THREE.Vector3(0,0,z); // XZ
     const a5 = new THREE.Vector3(0,y,0), a6 = new THREE.Vector3(0,0,z); // YZ
@@ -299,6 +299,7 @@ function animate(){
 
   renderer.render(scene, camera);
 }
+
 
 
 function updateLine(line, vStart, vEnd){
