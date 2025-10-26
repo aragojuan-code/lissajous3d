@@ -90,11 +90,10 @@ import { OrbitControls } from "https://unpkg.com/three@0.160.0/examples/jsm/cont
 
 // --- estado global ---
 let scene, camera, renderer, controls, tube, head;
-let projBalls = [];        // 3 bolitas en planos (XY, XZ, YZ)
+
 let axisDots = [];         // 6 bolitas sobre ejes (para cada plano, 2 ejes)
-let guideLines = [];       // 6 líneas finas hacia ejes
+
 let pathPoints = [];
-let headProjLines = [];   // 3 líneas desde la bolita principal a pXY, pXZ, pYZ
 
 let tHead = 0;
 let playing = true;
@@ -154,12 +153,7 @@ function init(){
   );
   scene.add(head);
 
-  // bolitas de proyección en planos (color azul claro translúcido)
-  const matProj = new THREE.MeshBasicMaterial({color:0x66ccff, transparent:true, opacity:0.45});
-  for(let i=0;i<3;i++){
-    const b = new THREE.Mesh(new THREE.SphereGeometry(1.8, 16, 16), matProj);
-    scene.add(b); projBalls.push(b);
-  }
+
 
   // bolitas sobre ejes (gris translúcido)
   const matAxisDot = new THREE.MeshBasicMaterial({color:0xb0c4de, transparent:true, opacity:0.5});
@@ -168,20 +162,8 @@ function init(){
     scene.add(d); axisDots.push(d);
   }
 
-  // líneas guía hacia ejes (muy finas y discretas)
-  const lineMat = new THREE.LineBasicMaterial({color:0x88aacc, transparent:true, opacity:0.35});
-  for(let i=0;i<6;i++){
-    const geom = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(), new THREE.Vector3()]);
-    const ln = new THREE.Line(geom, lineMat);
-    scene.add(ln); guideLines.push(ln);
-  }
-// líneas desde la bolita principal hacia sus proyecciones en cada plano
-const matHP = new THREE.LineBasicMaterial({ color:0x99e0ff, transparent:true, opacity:0.35 });
-for(let i=0;i<3;i++){
-  const g = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(), new THREE.Vector3()]);
-  const ln = new THREE.Line(g, matHP);
-  scene.add(ln); headProjLines.push(ln);
-}
+ 
+
 
   // sliders → actualización en vivo
   ['fx','fy','fz'].forEach(id => $(id).addEventListener('input', generateCurve));
@@ -256,44 +238,23 @@ function animate(){
   controls.update();
 
   if (playing && pathPoints.length){
-    tHead += 0.0004;            // velocidad
+    tHead += 0.001;                      // velocidad
     if (tHead > 1) tHead = 0;
 
     const idx = tHead * (pathPoints.length - 1);
     const i0 = Math.floor(idx), i1 = Math.min(pathPoints.length - 1, i0 + 1);
-    const p  = pathPoints[i0].clone().lerp(pathPoints[i1], idx - i0); // <- p nace aquí
+    const p  = pathPoints[i0].clone().lerp(pathPoints[i1], idx - i0);
+
+    // bolita principal
     head.position.copy(p);
 
-    // proyecciones en planos
-    const {x, y, z} = p;
-    const pXY = new THREE.Vector3(x, y, 0);
-    const pXZ = new THREE.Vector3(x, 0, z);
-    const pYZ = new THREE.Vector3(0, y, z);
-
-    // bolitas de plano
-    projBalls[0].position.copy(pXY);
-    projBalls[1].position.copy(pXZ);
-    projBalls[2].position.copy(pYZ);
-
-    // puntos sobre ejes
-    const a1 = new THREE.Vector3(x,0,0), a2 = new THREE.Vector3(0,y,0); // XY
-    const a3 = new THREE.Vector3(x,0,0), a4 = new THREE.Vector3(0,0,z); // XZ
-    const a5 = new THREE.Vector3(0,y,0), a6 = new THREE.Vector3(0,0,z); // YZ
+    // SOLO bolitas sobre ejes (sin proyecciones ni líneas)
+    const { x, y, z } = p;
+    const a1 = new THREE.Vector3(x,0,0), a2 = new THREE.Vector3(0,y,0); // desde plano XY
+    const a3 = new THREE.Vector3(x,0,0), a4 = new THREE.Vector3(0,0,z); // desde plano XZ
+    const a5 = new THREE.Vector3(0,y,0), a6 = new THREE.Vector3(0,0,z); // desde plano YZ
     const axisPts = [a1,a2,a3,a4,a5,a6];
     axisPts.forEach((pt,i)=> axisDots[i].position.copy(pt));
-
-    // líneas plano → ejes
-    updateLine(guideLines[0], pXY, a1);
-    updateLine(guideLines[1], pXY, a2);
-    updateLine(guideLines[2], pXZ, a3);
-    updateLine(guideLines[3], pXZ, a4);
-    updateLine(guideLines[4], pYZ, a5);
-    updateLine(guideLines[5], pYZ, a6);
-
-    // líneas bolita principal → proyecciones de plano
-    updateLine(headProjLines[0], p, pXY);
-    updateLine(headProjLines[1], p, pXZ);
-    updateLine(headProjLines[2], p, pYZ);
   }
 
   renderer.render(scene, camera);
@@ -301,12 +262,8 @@ function animate(){
 
 
 
-function updateLine(line, vStart, vEnd){
-  const pos = line.geometry.attributes.position;
-  pos.setXYZ(0, vStart.x, vStart.y, vStart.z);
-  pos.setXYZ(1, vEnd.x,   vEnd.y,   vEnd.z);
-  pos.needsUpdate = true;
-}
+
+
 </script>
 
 
