@@ -257,8 +257,9 @@ function animate(){
   controls.update();
 
   if (playing && pathPoints.length){
-    tHead += 0.001;
+    tHead += 0.001;              // velocidad más lenta
     if (tHead>1) tHead=0;
+
     const idx = tHead*(pathPoints.length-1);
     const i0 = Math.floor(idx), i1 = Math.min(pathPoints.length-1, i0+1);
     const p = pathPoints[i0].clone().lerp(pathPoints[i1], idx-i0);
@@ -266,43 +267,39 @@ function animate(){
 
     // proyecciones en planos
     const {x,y,z} = p;
-    // bolas de plano
     const pXY = new THREE.Vector3(x,y,0);
     const pXZ = new THREE.Vector3(x,0,z);
     const pYZ = new THREE.Vector3(0,y,z);
+
+    // bolas de plano
     projBalls[0].position.copy(pXY);
     projBalls[1].position.copy(pXZ);
     projBalls[2].position.copy(pYZ);
 
-    // puntos sobre ejes desde cada plano (dos por plano)
-    // XY → (x,0,0) y (0,y,0)
-    const a1 = new THREE.Vector3(x,0,0), a2 = new THREE.Vector3(0,y,0);
-    // XZ → (x,0,0) y (0,0,z)
-    const a3 = new THREE.Vector3(x,0,0), a4 = new THREE.Vector3(0,0,z);
-    // YZ → (0,y,0) y (0,0,z)
-    const a5 = new THREE.Vector3(0,y,0), a6 = new THREE.Vector3(0,0,z);
-
+    // puntos sobre ejes (dos por plano)
+    const a1 = new THREE.Vector3(x,0,0), a2 = new THREE.Vector3(0,y,0); // XY
+    const a3 = new THREE.Vector3(x,0,0), a4 = new THREE.Vector3(0,0,z); // XZ
+    const a5 = new THREE.Vector3(0,y,0), a6 = new THREE.Vector3(0,0,z); // YZ
     const axisPts = [a1,a2,a3,a4,a5,a6];
     axisPts.forEach((pt,i)=> axisDots[i].position.copy(pt));
 
-    // líneas desde proyección de plano hasta sus ejes
-    // guideLines[0]: pXY -> a1 ; [1]: pXY -> a2
+    // líneas plano → ejes
     updateLine(guideLines[0], pXY, a1);
     updateLine(guideLines[1], pXY, a2);
-    // [2]: pXZ -> a3 ; [3]: pXZ -> a4
     updateLine(guideLines[2], pXZ, a3);
     updateLine(guideLines[3], pXZ, a4);
-    // [4]: pYZ -> a5 ; [5]: pYZ -> a6
     updateLine(guideLines[4], pYZ, a5);
     updateLine(guideLines[5], pYZ, a6);
+
+    // líneas bolita principal → proyecciones de plano
+    updateLine(headProjLines[0], p, pXY);
+    updateLine(headProjLines[1], p, pXZ);
+    updateLine(headProjLines[2], p, pYZ);
   }
-// head → proyección en cada plano
-updateLine(headProjLines[0], p, pXY);
-updateLine(headProjLines[1], p, pXZ);
-updateLine(headProjLines[2], p, pYZ);
 
   renderer.render(scene, camera);
 }
+
 
 function updateLine(line, vStart, vEnd){
   const pos = line.geometry.attributes.position;
