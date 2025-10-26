@@ -238,7 +238,7 @@ function animate(){
   controls.update();
 
   if (playing && pathPoints.length){
-    tHead += 0.001;                      // velocidad
+    tHead += 0.0004;                      // velocidad
     if (tHead > 1) tHead = 0;
 
     const idx = tHead * (pathPoints.length - 1);
