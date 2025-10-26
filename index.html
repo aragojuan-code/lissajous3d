@@ -143,37 +143,45 @@ function onResize() {
 }
 
 // -------------------------------
-function generateCurve() {
-  const fx = parseInt(document.getElementById('fx').value);
-  const fy = parseInt(document.getElementById('fy').value);
-  const fz = parseInt(document.getElementById('fz').value);
+function generateCurve(){
+  const fx = parseInt(document.getElementById('fx').value, 10);
+  const fy = parseInt(document.getElementById('fy').value, 10);
+  const fz = parseInt(document.getElementById('fz').value, 10);
   const thick = parseFloat(document.getElementById('thick').value);
   const ballSize = parseFloat(document.getElementById('ball').value);
 
   // parámetros fijos
-  const A = 80, B = 80, C = 80, phx = 0, phy = 0, phz = 0, d = 0;
-  const tMax = Math.PI / 2, N = 3000;
+  const A=80,B=80,C=80, phx=0, phy=0, phz=0; // d=0, sin amortiguamiento
+  const T = 2*Math.PI;        // (1) periodo común correcto para enteros
+  const N = 3000;             // detalle
 
-  // actualizar geometría de la cabeza
+  // cabeza
   head.geometry.dispose();
   head.geometry = new THREE.SphereGeometry(ballSize, 24, 24);
 
+  // (3) generar N puntos en [0, T) SIN duplicar el final
   pathPoints = [];
-  for (let i = 0; i <= N; i++) {
-    const t = tMax * (i / N);
-    const x = (A * Math.sin(fx * t + phx));
-    const y = (B * Math.sin(fy * t + phy));
-    const z = (C * Math.sin(fz * t + phz));
-    pathPoints.push(new THREE.Vector3(x, y, z));
+  for(let i=0;i<N;i++){
+    const t = T * (i/N);
+    const x = A*Math.sin(fx*t + phx);
+    const y = B*Math.sin(fy*t + phy);
+    const z = C*Math.sin(fz*t + phz);
+    pathPoints.push(new THREE.Vector3(x,y,z));
   }
 
   if (tube) { tube.geometry.dispose(); scene.remove(tube); }
-  const curve = new THREE.CatmullRomCurve3(pathPoints);
-  const geom = new THREE.TubeGeometry(curve, N, thick, 32, false);
-  const mat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.3, metalness: 0.15 });
+
+  // (2) curva y tubo CERRADOS
+  const curve = new THREE.CatmullRomCurve3(pathPoints, /*closed=*/true, 'catmullrom', 0.0);
+  const geom  = new THREE.TubeGeometry(curve, N, thick, 32, /*closed=*/true);
+  const mat   = new THREE.MeshStandardMaterial({ color:0xffffff, roughness:.3, metalness:.15 });
   tube = new THREE.Mesh(geom, mat);
   scene.add(tube);
+
+  // posicionar la bolita al inicio
+  head.position.copy(pathPoints[0]);
 }
+
 
 // -------------------------------
 function animate() {
