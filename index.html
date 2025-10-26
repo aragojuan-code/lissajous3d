@@ -107,6 +107,22 @@ const $ = id => document.getElementById(id);
 init();
 generateCurve();
 animate();
+function addAxes(length=260){
+  const group = new THREE.Group();
+  const mk = (c)=> new THREE.LineBasicMaterial({ color:c, transparent:true, opacity:0.6 });
+
+  const makeAxis = (dir) => {
+    const g = new THREE.BufferGeometry().setFromPoints([
+      new THREE.Vector3(-length*(dir==='x'), -length*(dir==='y'), -length*(dir==='z')),
+      new THREE.Vector3( length*(dir==='x'),  length*(dir==='y'),  length*(dir==='z'))
+    ]);
+    const mat = dir==='x' ? mk(0xff5555) : dir==='y' ? mk(0x66ff66) : mk(0x66aaff);
+    return new THREE.Line(g, mat);
+  };
+
+  group.add( makeAxis('x'), makeAxis('y'), makeAxis('z') );
+  return group;
+}
 
 function init(){
   const elStage = document.getElementById('stage');
@@ -132,7 +148,7 @@ function init(){
   const grid = new THREE.GridHelper(400, 20, 0x32506a, 0x223443);
   grid.material.opacity = 0.25; grid.material.transparent = true;
   scene.add(grid);
-  scene.add(new THREE.AxesHelper(120));
+ scene.add( addAxes(260) );
 
   head = new THREE.Mesh(
     new THREE.SphereGeometry(3, 24, 24),
@@ -174,10 +190,24 @@ function init(){
 function onResize(){
   const elStage = document.getElementById('stage');
   const w = elStage.clientWidth || window.innerWidth;
-  const h = elStage.clientHeight || window.innerHeight;
-  camera.aspect = w/h; camera.updateProjectionMatrix();
+
+  // alto disponible en móvil = alto de ventana - alto del aside
+  const isMobile = window.matchMedia("(max-width: 900px)").matches;
+  let h;
+  if (isMobile) {
+    const aside = document.querySelector('aside');
+    const asideH = aside ? aside.getBoundingClientRect().height : 0;
+    h = Math.max(320, Math.floor(window.innerHeight - asideH));
+  } else {
+    // desktop: usa todo el alto del contenedor/ventana
+    h = elStage.clientHeight || window.innerHeight;
+  }
+
+  camera.aspect = w / h;
+  camera.updateProjectionMatrix();
   renderer.setSize(w, h, false);
 }
+
 
 function generateCurve(){
   const fx = parseInt($('fx').value,10);
@@ -218,7 +248,7 @@ function animate(){
   controls.update();
 
   if (playing && pathPoints.length){
-    tHead += 0.002;
+    tHead += 0.001;
     if (tHead>1) tHead=0;
     const idx = tHead*(pathPoints.length-1);
     const i0 = Math.floor(idx), i1 = Math.min(pathPoints.length-1, i0+1);
