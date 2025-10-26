@@ -74,24 +74,28 @@
 import * as THREE from "https://unpkg.com/three@0.160.0/build/three.module.js";
 import { OrbitControls } from "https://unpkg.com/three@0.160.0/examples/jsm/controls/OrbitControls.js";
 
-const elStage = document.getElementById('stage');
+// --- variables globales declaradas arriba ---
 let scene, camera, renderer, controls, tube, head;
 let projBalls = [];
 let pathPoints = [];
+let tHead = 0;
 let playing = true;
 
+// --- inicialización ---
 init();
 generateCurve();
 animate();
 
-function init(){
+// -------------------------------
+function init() {
+  const elStage = document.getElementById('stage');
   scene = new THREE.Scene();
   scene.background = new THREE.Color(0x0f141b);
 
   camera = new THREE.PerspectiveCamera(55, 1, 0.1, 5000);
-  camera.position.set(180,140,180);
+  camera.position.set(180, 140, 180);
 
-  renderer = new THREE.WebGLRenderer({antialias:true});
+  renderer = new THREE.WebGLRenderer({ antialias: true });
   elStage.appendChild(renderer.domElement);
   onResize();
   window.addEventListener('resize', onResize);
@@ -100,42 +104,46 @@ function init(){
   controls.enableDamping = true;
 
   const light = new THREE.DirectionalLight(0xffffff, 1.2);
-  light.position.set(1,1,1);
+  light.position.set(1, 1, 1);
   scene.add(light, new THREE.AmbientLight(0xffffff, 0.3));
 
   const grid = new THREE.GridHelper(400, 20, 0x32506a, 0x223443);
-  grid.material.opacity = 0.25; grid.material.transparent = true;
+  grid.material.opacity = 0.25;
+  grid.material.transparent = true;
   scene.add(grid);
   scene.add(new THREE.AxesHelper(120));
 
   head = new THREE.Mesh(
     new THREE.SphereGeometry(3, 24, 24),
-    new THREE.MeshStandardMaterial({color:0xffffaa, emissive:0x222200, roughness:.3})
+    new THREE.MeshStandardMaterial({ color: 0xffffaa, emissive: 0x222200, roughness: 0.3 })
   );
   scene.add(head);
 
-  // proyecciones: bolitas en planos XY, XZ, YZ
-  const matProj = new THREE.MeshBasicMaterial({color:0x66ccff, transparent:true, opacity:0.4});
-  for(let i=0;i<3;i++){
-    const ball = new THREE.Mesh(new THREE.SphereGeometry(2,16,16), matProj);
+  // bolitas de proyección
+  const matProj = new THREE.MeshBasicMaterial({ color: 0x66ccff, transparent: true, opacity: 0.4 });
+  for (let i = 0; i < 3; i++) {
+    const ball = new THREE.Mesh(new THREE.SphereGeometry(2, 16, 16), matProj);
     scene.add(ball);
     projBalls.push(ball);
   }
 
   // listeners sliders
-  ['fx','fy','fz','thick','ball'].forEach(id=>{
+  ['fx', 'fy', 'fz', 'thick', 'ball'].forEach(id => {
     document.getElementById(id).addEventListener('input', generateCurve);
   });
 }
 
-function onResize(){
+function onResize() {
+  const elStage = document.getElementById('stage');
   const w = elStage.clientWidth || window.innerWidth;
-  const h = elStage.clientHeight || (window.innerHeight - 0);
-  camera.aspect = w/h; camera.updateProjectionMatrix();
+  const h = elStage.clientHeight || window.innerHeight;
+  camera.aspect = w / h;
+  camera.updateProjectionMatrix();
   renderer.setSize(w, h, false);
 }
 
-function generateCurve(){
+// -------------------------------
+function generateCurve() {
   const fx = parseInt(document.getElementById('fx').value);
   const fy = parseInt(document.getElementById('fy').value);
   const fz = parseInt(document.getElementById('fz').value);
@@ -143,45 +151,45 @@ function generateCurve(){
   const ballSize = parseFloat(document.getElementById('ball').value);
 
   // parámetros fijos
-  const A=80,B=80,C=80, phx=0, phy=0, phz=0, d=0;
-  const tMax=Math.PI/2, N=3000;
+  const A = 80, B = 80, C = 80, phx = 0, phy = 0, phz = 0, d = 0;
+  const tMax = Math.PI / 2, N = 3000;
 
-  // actualizar cabeza y proyecciones
+  // actualizar geometría de la cabeza
   head.geometry.dispose();
   head.geometry = new THREE.SphereGeometry(ballSize, 24, 24);
 
-  pathPoints=[];
-  for(let i=0;i<=N;i++){
-    const t=tMax*(i/N);
-    const x=A*Math.sin(fx*t+phx);
-    const y=B*Math.sin(fy*t+phy);
-    const z=C*Math.sin(fz*t+phz);
-    pathPoints.push(new THREE.Vector3(x,y,z));
+  pathPoints = [];
+  for (let i = 0; i <= N; i++) {
+    const t = tMax * (i / N);
+    const x = (A * Math.sin(fx * t + phx));
+    const y = (B * Math.sin(fy * t + phy));
+    const z = (C * Math.sin(fz * t + phz));
+    pathPoints.push(new THREE.Vector3(x, y, z));
   }
 
-  if(tube){ tube.geometry.dispose(); scene.remove(tube); }
+  if (tube) { tube.geometry.dispose(); scene.remove(tube); }
   const curve = new THREE.CatmullRomCurve3(pathPoints);
   const geom = new THREE.TubeGeometry(curve, N, thick, 32, false);
-  const mat = new THREE.MeshStandardMaterial({color:0xffffff, roughness:.3, metalness:.15});
+  const mat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.3, metalness: 0.15 });
   tube = new THREE.Mesh(geom, mat);
   scene.add(tube);
 }
 
-let tHead=0;
-function animate(){
+// -------------------------------
+function animate() {
   requestAnimationFrame(animate);
   controls.update();
 
-  if(playing && pathPoints.length){
+  if (playing && pathPoints.length) {
     tHead += 0.002;
-    if(tHead>1) tHead=0;
-    const idx = tHead*(pathPoints.length-1);
-    const i0 = Math.floor(idx), i1 = Math.min(pathPoints.length-1, i0+1);
-    const p = pathPoints[i0].clone().lerp(pathPoints[i1], idx-i0);
+    if (tHead > 1) tHead = 0;
+    const idx = tHead * (pathPoints.length - 1);
+    const i0 = Math.floor(idx), i1 = Math.min(pathPoints.length - 1, i0 + 1);
+    const p = pathPoints[i0].clone().lerp(pathPoints[i1], idx - i0);
     head.position.copy(p);
 
     // proyecciones (en planos XY, XZ, YZ)
-    const {x,y,z} = p;
+    const { x, y, z } = p;
     projBalls[0].position.set(x, y, 0);  // XY
     projBalls[1].position.set(x, 0, z);  // XZ
     projBalls[2].position.set(0, y, z);  // YZ
@@ -190,6 +198,7 @@ function animate(){
   renderer.render(scene, camera);
 }
 </script>
+
 
 </body>
 </html>
