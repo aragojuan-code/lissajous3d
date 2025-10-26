@@ -28,6 +28,20 @@
   main{position:relative}
   canvas{display:block;width:100%;height:100%}
   .hud{position:absolute;left:12px;bottom:12px;background:rgba(0,0,0,.35);backdrop-filter:blur(4px);padding:8px 10px;border-radius:8px;font-size:12px}
+  /* aside más ancho en desktop, full en móvil */
+.wrap{display:grid;grid-template-columns:420px 1fr;min-height:100vh}
+@media (max-width:900px){.wrap{grid-template-columns:1fr;grid-template-rows:auto 1fr}}
+aside{padding:14px;border-right:1px solid rgba(255,255,255,.06)}
+@media (max-width:900px){aside{border-right:none;border-bottom:1px solid rgba(255,255,255,.06)}}
+
+/* campos: etiqueta estrecha + slider 100% */
+.field{display:grid;grid-template-columns:64px 1fr;align-items:center;gap:12px;margin:10px 0}
+.field label{font-size:12px;color:var(--muted)}
+.field input[type="range"]{width:100%}
+
+/* botón */
+button{background:#182432;border:1px solid rgba(255,255,255,.08);color:#e6eef7;border-radius:8px;padding:8px 12px;cursor:pointer}
+
 </style>
 </head>
 <body>
@@ -35,7 +49,7 @@
  <aside>
   <h1>Curva 3D de Frecuencias</h1>
 
-  <div class="panel active" id="panel-freqs">
+  <div class="panel active">
     <div class="field"><label>f<sub>x</sub></label>
       <input id="fx" type="range" min="1" max="10" step="1" value="3">
     </div>
@@ -45,15 +59,19 @@
     <div class="field"><label>f<sub>z</sub></label>
       <input id="fz" type="range" min="1" max="10" step="1" value="5">
     </div>
-    <hr style="border:none;border-top:1px solid rgba(255,255,255,.1);margin:10px 0;">
-    <div class="field"><label>Grosor tubo</label>
-      <input id="thick" type="range" min="0.5" max="5" step="0.1" value="1.6">
+
+    <hr style="border:none;border-top:1px solid rgba(255,255,255,.1);margin:12px 0">
+
+    <div class="field"><label>Grosor</label>
+      <input id="thick" type="range" min="0.5" max="6" step="0.1" value="1.6">
     </div>
-    <div class="field"><label>Bolita</label>
-      <input id="ball" type="range" min="1" max="8" step="0.2" value="3">
+
+    <div class="row" style="margin-top:10px">
+      <button id="reset">Recentrar</button>
     </div>
   </div>
 </aside>
+
 
   <main>
     <div id="stage"></div>
@@ -74,28 +92,32 @@
 import * as THREE from "https://unpkg.com/three@0.160.0/build/three.module.js";
 import { OrbitControls } from "https://unpkg.com/three@0.160.0/examples/jsm/controls/OrbitControls.js";
 
-// --- variables globales declaradas arriba ---
+// --- estado global ---
 let scene, camera, renderer, controls, tube, head;
-let projBalls = [];
+let projBalls = [];        // 3 bolitas en planos (XY, XZ, YZ)
+let axisDots = [];         // 6 bolitas sobre ejes (para cada plano, 2 ejes)
+let guideLines = [];       // 6 líneas finas hacia ejes
 let pathPoints = [];
 let tHead = 0;
 let playing = true;
 
-// --- inicialización ---
+// UI
+const $ = id => document.getElementById(id);
+
 init();
 generateCurve();
 animate();
 
-// -------------------------------
-function init() {
+function init(){
   const elStage = document.getElementById('stage');
+
   scene = new THREE.Scene();
   scene.background = new THREE.Color(0x0f141b);
 
   camera = new THREE.PerspectiveCamera(55, 1, 0.1, 5000);
-  camera.position.set(180, 140, 180);
+  camera.position.set(180,140,180);
 
-  renderer = new THREE.WebGLRenderer({ antialias: true });
+  renderer = new THREE.WebGLRenderer({antialias:true});
   elStage.appendChild(renderer.domElement);
   onResize();
   window.addEventListener('resize', onResize);
@@ -104,62 +126,76 @@ function init() {
   controls.enableDamping = true;
 
   const light = new THREE.DirectionalLight(0xffffff, 1.2);
-  light.position.set(1, 1, 1);
+  light.position.set(1,1,1);
   scene.add(light, new THREE.AmbientLight(0xffffff, 0.3));
 
   const grid = new THREE.GridHelper(400, 20, 0x32506a, 0x223443);
-  grid.material.opacity = 0.25;
-  grid.material.transparent = true;
+  grid.material.opacity = 0.25; grid.material.transparent = true;
   scene.add(grid);
   scene.add(new THREE.AxesHelper(120));
 
   head = new THREE.Mesh(
     new THREE.SphereGeometry(3, 24, 24),
-    new THREE.MeshStandardMaterial({ color: 0xffffaa, emissive: 0x222200, roughness: 0.3 })
+    new THREE.MeshStandardMaterial({color:0xffffaa, emissive:0x222200, roughness:.3})
   );
   scene.add(head);
 
-  // bolitas de proyección
-  const matProj = new THREE.MeshBasicMaterial({ color: 0x66ccff, transparent: true, opacity: 0.4 });
-  for (let i = 0; i < 3; i++) {
-    const ball = new THREE.Mesh(new THREE.SphereGeometry(2, 16, 16), matProj);
-    scene.add(ball);
-    projBalls.push(ball);
+  // bolitas de proyección en planos (color azul claro translúcido)
+  const matProj = new THREE.MeshBasicMaterial({color:0x66ccff, transparent:true, opacity:0.45});
+  for(let i=0;i<3;i++){
+    const b = new THREE.Mesh(new THREE.SphereGeometry(1.8, 16, 16), matProj);
+    scene.add(b); projBalls.push(b);
   }
 
-  // listeners sliders
-  ['fx', 'fy', 'fz', 'thick', 'ball'].forEach(id => {
-    document.getElementById(id).addEventListener('input', generateCurve);
+  // bolitas sobre ejes (gris translúcido)
+  const matAxisDot = new THREE.MeshBasicMaterial({color:0xb0c4de, transparent:true, opacity:0.5});
+  for(let i=0;i<6;i++){
+    const d = new THREE.Mesh(new THREE.SphereGeometry(1.4, 16, 16), matAxisDot);
+    scene.add(d); axisDots.push(d);
+  }
+
+  // líneas guía hacia ejes (muy finas y discretas)
+  const lineMat = new THREE.LineBasicMaterial({color:0x88aacc, transparent:true, opacity:0.35});
+  for(let i=0;i<6;i++){
+    const geom = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(), new THREE.Vector3()]);
+    const ln = new THREE.Line(geom, lineMat);
+    scene.add(ln); guideLines.push(ln);
+  }
+
+  // sliders → actualización en vivo
+  ['fx','fy','fz','thick'].forEach(id => $(id).addEventListener('input', generateCurve));
+  // botón recentrar
+  $('reset').addEventListener('click', ()=>{
+    controls.reset();
+    camera.position.set(180,140,180);
   });
 }
 
-function onResize() {
+function onResize(){
   const elStage = document.getElementById('stage');
   const w = elStage.clientWidth || window.innerWidth;
   const h = elStage.clientHeight || window.innerHeight;
-  camera.aspect = w / h;
-  camera.updateProjectionMatrix();
+  camera.aspect = w/h; camera.updateProjectionMatrix();
   renderer.setSize(w, h, false);
 }
 
-// -------------------------------
 function generateCurve(){
-  const fx = parseInt(document.getElementById('fx').value, 10);
-  const fy = parseInt(document.getElementById('fy').value, 10);
-  const fz = parseInt(document.getElementById('fz').value, 10);
-  const thick = parseFloat(document.getElementById('thick').value);
-  const ballSize = parseFloat(document.getElementById('ball').value);
+  const fx = parseInt($('fx').value,10);
+  const fy = parseInt($('fy').value,10);
+  const fz = parseInt($('fz').value,10);
+  const thick = parseFloat($('thick').value);
 
   // parámetros fijos
-  const A=80,B=80,C=80, phx=0, phy=0, phz=0; // d=0, sin amortiguamiento
-  const T = 2*Math.PI;        // (1) periodo común correcto para enteros
-  const N = 3000;             // detalle
+  const A=80,B=80,C=80, phx=0, phy=0, phz=0;
+  const T = 2*Math.PI;         // periodo común para enteros
+  const N = 3000;
 
-  // cabeza
+  // el tamaño de la bolita principal depende del grosor (un poco mayor)
+  const headSize = Math.max(2.2*thick, 2.2);
   head.geometry.dispose();
-  head.geometry = new THREE.SphereGeometry(ballSize, 24, 24);
+  head.geometry = new THREE.SphereGeometry(headSize, 24, 24);
 
-  // (3) generar N puntos en [0, T) SIN duplicar el final
+  // puntos sin duplicar el final
   pathPoints = [];
   for(let i=0;i<N;i++){
     const t = T * (i/N);
@@ -170,42 +206,69 @@ function generateCurve(){
   }
 
   if (tube) { tube.geometry.dispose(); scene.remove(tube); }
-
-  // (2) curva y tubo CERRADOS
-  const curve = new THREE.CatmullRomCurve3(pathPoints, /*closed=*/true, 'catmullrom', 0.0);
-  const geom  = new THREE.TubeGeometry(curve, N, thick, 32, /*closed=*/true);
+  const curve = new THREE.CatmullRomCurve3(pathPoints, true, 'catmullrom', 0.0);
+  const geom  = new THREE.TubeGeometry(curve, N, thick, 32, true);
   const mat   = new THREE.MeshStandardMaterial({ color:0xffffff, roughness:.3, metalness:.15 });
   tube = new THREE.Mesh(geom, mat);
   scene.add(tube);
-
-  // posicionar la bolita al inicio
-  head.position.copy(pathPoints[0]);
 }
 
-
-// -------------------------------
-function animate() {
+function animate(){
   requestAnimationFrame(animate);
   controls.update();
 
-  if (playing && pathPoints.length) {
+  if (playing && pathPoints.length){
     tHead += 0.002;
-    if (tHead > 1) tHead = 0;
-    const idx = tHead * (pathPoints.length - 1);
-    const i0 = Math.floor(idx), i1 = Math.min(pathPoints.length - 1, i0 + 1);
-    const p = pathPoints[i0].clone().lerp(pathPoints[i1], idx - i0);
+    if (tHead>1) tHead=0;
+    const idx = tHead*(pathPoints.length-1);
+    const i0 = Math.floor(idx), i1 = Math.min(pathPoints.length-1, i0+1);
+    const p = pathPoints[i0].clone().lerp(pathPoints[i1], idx-i0);
     head.position.copy(p);
 
-    // proyecciones (en planos XY, XZ, YZ)
-    const { x, y, z } = p;
-    projBalls[0].position.set(x, y, 0);  // XY
-    projBalls[1].position.set(x, 0, z);  // XZ
-    projBalls[2].position.set(0, y, z);  // YZ
+    // proyecciones en planos
+    const {x,y,z} = p;
+    // bolas de plano
+    const pXY = new THREE.Vector3(x,y,0);
+    const pXZ = new THREE.Vector3(x,0,z);
+    const pYZ = new THREE.Vector3(0,y,z);
+    projBalls[0].position.copy(pXY);
+    projBalls[1].position.copy(pXZ);
+    projBalls[2].position.copy(pYZ);
+
+    // puntos sobre ejes desde cada plano (dos por plano)
+    // XY → (x,0,0) y (0,y,0)
+    const a1 = new THREE.Vector3(x,0,0), a2 = new THREE.Vector3(0,y,0);
+    // XZ → (x,0,0) y (0,0,z)
+    const a3 = new THREE.Vector3(x,0,0), a4 = new THREE.Vector3(0,0,z);
+    // YZ → (0,y,0) y (0,0,z)
+    const a5 = new THREE.Vector3(0,y,0), a6 = new THREE.Vector3(0,0,z);
+
+    const axisPts = [a1,a2,a3,a4,a5,a6];
+    axisPts.forEach((pt,i)=> axisDots[i].position.copy(pt));
+
+    // líneas desde proyección de plano hasta sus ejes
+    // guideLines[0]: pXY -> a1 ; [1]: pXY -> a2
+    updateLine(guideLines[0], pXY, a1);
+    updateLine(guideLines[1], pXY, a2);
+    // [2]: pXZ -> a3 ; [3]: pXZ -> a4
+    updateLine(guideLines[2], pXZ, a3);
+    updateLine(guideLines[3], pXZ, a4);
+    // [4]: pYZ -> a5 ; [5]: pYZ -> a6
+    updateLine(guideLines[4], pYZ, a5);
+    updateLine(guideLines[5], pYZ, a6);
   }
 
   renderer.render(scene, camera);
 }
+
+function updateLine(line, vStart, vEnd){
+  const pos = line.geometry.attributes.position;
+  pos.setXYZ(0, vStart.x, vStart.y, vStart.z);
+  pos.setXYZ(1, vEnd.x,   vEnd.y,   vEnd.z);
+  pos.needsUpdate = true;
+}
 </script>
+
 
 
 </body>
