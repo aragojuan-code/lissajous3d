@@ -219,7 +219,7 @@ function generateCurve(){
   const N = 3000;
 
   // grosor fijo (75% de tamaño base)
-  const thick = 0.75 * (A / 100); // = 0.6 si A=80, puedes subirlo a gusto
+  const thick = 2 * (A / 100); // = 0.6 si A=80, puedes subirlo a gusto
   const headSize = Math.max(2.2 * thick, 2.2);
 
   head.geometry.dispose();
