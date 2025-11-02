@@ -56,7 +56,9 @@
       <div class="field"><label>f<sub>z</sub></label>
         <input id="fz" type="range" min="1" max="10" step="1" value="5">
       </div>
-
+<div class="field"><label>Desfase</label>
+  <input id="ph" type="range" min="0" max="6.283" step="0.001" value="1.0">
+</div>
 
       <div class="row" style="margin-top:10px">
         <button id="reset">Recentrar</button>
@@ -161,7 +163,7 @@ function init(){
 
 
   // sliders → actualización en vivo
-  ['fx','fy','fz'].forEach(id => $(id).addEventListener('input', generateCurve));
+ ['fx','fy','fz','ph'].forEach(id => $(id).addEventListener('input', generateCurve));
   // botón recentrar
   $('reset').addEventListener('click', ()=>{
     controls.reset();
@@ -196,12 +198,22 @@ function generateCurve(){
   const fz = parseInt($('fz').value,10);
 
   // parámetros fijos
-  const A=80,B=80,C=80, phx=0, phy=0, phz=0;
-  const T = 2*Math.PI;
-  const N = 3000;
+ const A=80,B=80,C=80;
+const phase = parseFloat($('phase').value);      // en radianes
+const TWO_PI = Math.PI * 2;
+const PHI = 1.61803398875;
+
+// fases “desacopladas” y envueltas a [0, 2π)
+const phx = 0;
+const phy = ((ph % TWO_PI) + TWO_PI) % TWO_PI;
+const phz = (((ph * PHI) % TWO_PI) + TWO_PI) % TWO_PI;
+
+const T = TWO_PI;    // mantiene el cierre
+const N = 3000;
+
 
   // grosor fijo (75% de tamaño base)
-  const thick = 3 * (A / 100); // = 0.6 si A=80, puedes subirlo a gusto
+  const thick = 4 * (A / 100); // = 0.6 si A=80, puedes subirlo a gusto
   const headSize = Math.max(2.2 * thick, 2.2);
 
   head.geometry.dispose();
@@ -232,7 +244,7 @@ function animate(){
   controls.update();
 
   if (playing && pathPoints.length){
-    tHead += 0.001;                      // velocidad
+    tHead += 0.0003;                      // velocidad
     if (tHead > 1) tHead = 0;
 
     const idx = tHead * (pathPoints.length - 1);
